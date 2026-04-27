@@ -7,6 +7,7 @@ namespace MonkeysLegion\DevTools\Middleware;
 use MonkeysLegion\DevTools\Collector\ExceptionCollector;
 use MonkeysLegion\DevTools\Collector\RequestCollector;
 use MonkeysLegion\DevTools\Profiler\Profiler;
+use MonkeysLegion\DevTools\Toolbar\ToolbarInjector;
 
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -18,13 +19,14 @@ use Psr\Http\Server\RequestHandlerInterface;
  *
  * PSR-15 middleware that wraps the full request lifecycle with profiling.
  * Automatically starts/stops the profiler, captures request/response data,
- * handles exceptions, attaches profile headers, and manages toolbar injection.
+ * handles exceptions, attaches profile headers, and injects the debug toolbar.
  *
  * Competitive advantages:
  * - Zero overhead when profiler is disabled (early return)
  * - Automatic exception capture without swallowing
  * - Profile ID in response headers for API debugging
- * - Content-type aware — skips binary/streaming responses
+ * - Content-type aware — only injects toolbar into HTML responses
+ * - Self-contained toolbar with embedded CSS/JS (no external assets)
  *
  * @copyright 2026 MonkeysCloud Team
  * @license   MIT
@@ -37,6 +39,7 @@ final class DevToolsMiddleware implements MiddlewareInterface
 
     public function __construct(
         private readonly Profiler $profiler,
+        private readonly ?ToolbarInjector $injector = null,
     ) {}
 
     public function process(
@@ -110,6 +113,11 @@ final class DevToolsMiddleware implements MiddlewareInterface
             $response = $response
                 ->withHeader(self::PROFILE_HEADER, $profile->id)
                 ->withHeader(self::PROFILE_DURATION_HEADER, sprintf('%.2fms', $profile->durationMs));
+
+            // 8. Inject debug toolbar into HTML responses
+            if ($this->injector !== null) {
+                $response = $this->injector->inject($response, $profile);
+            }
         }
 
         return $response;

@@ -133,7 +133,7 @@ final class DevToolsServiceProvider
             throw new \RuntimeException('DevTools has not been booted. Call boot() first.');
         }
 
-        return new DevToolsMiddleware($this->profiler);
+        return new DevToolsMiddleware($this->profiler, $this->injector);
     }
 
     /**
