@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\DevTools;
 
+use MonkeysLegion\DevTools\Bridge\DatabaseEventBridge;
+
 use MonkeysLegion\DevTools\Collector\CacheCollector;
 use MonkeysLegion\DevTools\Collector\EventCollector;
 use MonkeysLegion\DevTools\Collector\ExceptionCollector;
@@ -156,6 +158,37 @@ final class DevToolsServiceProvider
         }
 
         return $collectors;
+    }
+
+    /**
+     * Get the QueryCollector instance (if registered).
+     *
+     * Use this to attach the DatabaseEventBridge to a Connection.
+     */
+    public function getQueryCollector(): ?QueryCollector
+    {
+        return $this->profiler?->getCollector('query');
+    }
+
+    /**
+     * Create a DatabaseEventBridge that forwards Connection events
+     * to the DevTools QueryCollector.
+     *
+     * Returns null if the query collector is not registered.
+     *
+     * Usage:
+     *   $bridge = $devtools->createDatabaseBridge();
+     *   if ($bridge) $connection->eventDispatcher = $bridge;
+     */
+    public function createDatabaseBridge(): ?DatabaseEventBridge
+    {
+        $collector = $this->getQueryCollector();
+
+        if ($collector === null) {
+            return null;
+        }
+
+        return new DatabaseEventBridge($collector);
     }
 
     // ── Private Resolution ──────────────────────────────────────
