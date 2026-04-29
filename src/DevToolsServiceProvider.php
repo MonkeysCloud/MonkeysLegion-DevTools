@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MonkeysLegion\DevTools;
 
 use MonkeysLegion\DevTools\Bridge\DatabaseEventBridge;
+use MonkeysLegion\DevTools\Bridge\EventInterceptorBridge;
+use MonkeysLegion\DevTools\Bridge\CacheBridge;
+use MonkeysLegion\DevTools\Bridge\ExceptionBridge;
 
 use MonkeysLegion\DevTools\Collector\CacheCollector;
 use MonkeysLegion\DevTools\Collector\EventCollector;
@@ -191,6 +194,74 @@ final class DevToolsServiceProvider
         return new DatabaseEventBridge($collector);
     }
 
+    /**
+     * Get the EventCollector instance (if registered).
+     */
+    public function getEventCollector(): ?EventCollector
+    {
+        return $this->profiler?->getCollector('event');
+    }
+
+    /**
+     * Create an EventInterceptorBridge for the Events package.
+     *
+     * Register as a global interceptor on the EventDispatcher:
+     *   $dispatcher->addInterceptor($devtools->createEventBridge());
+     */
+    public function createEventBridge(): ?EventInterceptorBridge
+    {
+        $collector = $this->getEventCollector();
+
+        return $collector !== null ? new EventInterceptorBridge($collector) : null;
+    }
+
+    /**
+     * Get the CacheCollector instance (if registered).
+     */
+    public function getCacheCollector(): ?CacheCollector
+    {
+        return $this->profiler?->getCollector('cache');
+    }
+
+    /**
+     * Wrap a PSR-16 CacheInterface with DevTools profiling.
+     *
+     * @param \Psr\SimpleCache\CacheInterface $cache Inner cache to wrap
+     * @param string $storeName Store name for display
+     */
+    public function createCacheBridge(\Psr\SimpleCache\CacheInterface $cache, string $storeName = 'default'): ?\Psr\SimpleCache\CacheInterface
+    {
+        $collector = $this->getCacheCollector();
+
+        return $collector !== null ? new CacheBridge($cache, $collector, $storeName) : null;
+    }
+
+    /**
+     * Get the ExceptionCollector instance (if registered).
+     */
+    public function getExceptionCollector(): ?ExceptionCollector
+    {
+        return $this->profiler?->getCollector('exception');
+    }
+
+    /**
+     * Create and install an ExceptionBridge that captures uncaught exceptions.
+     *
+     * Call once during boot to wire the global exception handler.
+     */
+    public function createExceptionBridge(): ?ExceptionBridge
+    {
+        $collector = $this->getExceptionCollector();
+
+        if ($collector === null) {
+            return null;
+        }
+
+        $bridge = new ExceptionBridge($collector);
+        $bridge->install();
+
+        return $bridge;
+    }
     // ── Private Resolution ──────────────────────────────────────
 
     /**
